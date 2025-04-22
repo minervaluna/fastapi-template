@@ -19,10 +19,12 @@ def get_current_user(token: str = Header(..., alias="Authorization"), db: Sessio
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
-    username = payload.get("sub")
-    if username is None:
+    user_id = payload.get("id")
+    print(f"user_id: {user_id}")
+    if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
-    db_user = crud_user.get_user_by_username(db, username=username)
+    db_user = crud_user.get_user(db, int(user_id))
+    print(f"user: {db_user}")
     if db_user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return db_user

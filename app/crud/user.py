@@ -1,4 +1,5 @@
 # app/crud/user.py
+from fastapi_pagination import LimitOffsetParams
 from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
@@ -10,8 +11,8 @@ def get_user(db: Session, user_id: int):
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
 
-def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(User).offset(skip).limit(limit).all()
+def get_users(db: Session):
+    return db.query(User).all()
 
 def create_user(db: Session, user: UserCreate):
     hashed_password = get_password_hash(user.password)
@@ -25,11 +26,9 @@ def update_user(db: Session, user_id: int, user_update: UserUpdate):
     db_user = get_user(db, user_id)
     if not db_user:
         return None
-    if user_update.username:
-        db_user.username = user_update.username
-    if user_update.email:
+    if user_update.email is not None:
         db_user.email = user_update.email
-    if user_update.password:
+    if user_update.password is not None:
         db_user.hashed_password = get_password_hash(user_update.password)
     db.commit()
     db.refresh(db_user)

@@ -1,24 +1,28 @@
 # app/schemas/user.py
+from typing import Optional
 from pydantic import BaseModel, EmailStr
 
-
-class UserBase(BaseModel):
+class UserCreate(BaseModel):
     username: str
-    email: EmailStr
-
-
-class UserCreate(UserBase):
     password: str
-
-
-class UserUpdate(BaseModel):
-    username: str = None
-    email: EmailStr = None
-    password: str = None
-
-
-class UserOut(UserBase):
-    id: int
+    email: Optional[EmailStr] = None
 
     class Config:
-        from_attributes = True
+        schema_extra = {
+            "example": {
+                "username": "johndoe",
+                "email": "johndoe@example.com",
+                "password": "strongpassword123"
+            }
+        }
+
+class UserUpdate(BaseModel):
+    password: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: Optional[EmailStr] = None
+    class Config:
+        orm_mode = True

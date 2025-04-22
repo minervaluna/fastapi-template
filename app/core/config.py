@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 
-# 加载项目根目录的 .env 文件
+# load .env file
 load_dotenv()
 
 class Settings:

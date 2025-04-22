@@ -1,25 +1,27 @@
 # app/main.py
 import json
+import logging
+
+import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import HTTPException
-import uvicorn
+from fastapi_pagination import add_pagination
 
-from app.api.routes import user as user_router, file as file_router
-from app.core.config import settings
-from app.core.exceptions import http_exception_handler, generic_exception_handler
-from app.core.database import engine, Base
 from app.api.main import api_router
+from app.core.config import settings
+from app.core.database import engine, Base
+from app.core.exceptions import generic_exception_handler, validation_exception_handler, http_exception_handler
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
 )
 
-# 自动创建数据库表（首次启动时会根据 models 创建表）
+# Automatically create database tables (tables are created based on models upon the first launch)
 Base.metadata.create_all(bind=engine)
 
-# 配置 CORS（如有需要）
+# CORS config
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,15 +30,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 全局异常处理器：HTTPException 与所有未捕获异常
+# Global exception handler: HTTPException and all uncaptured exceptions
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
-# 全局中间件：统一 JSON 输出格式
+
+# Global middleware: Uniform JSON output format
 @app.middleware("http")
 async def add_custom_response_format(request: Request, call_next):
     response = await call_next(request)
-    # 针对 application/json 类型的响应包装统一格式
+
+    # Handle json result...
     if "application/json" in response.headers.get("content-type", ""):
         body = b""
         async for chunk in response.body_iterator:
@@ -45,17 +50,32 @@ async def add_custom_response_format(request: Request, call_next):
             original_data = json.loads(body)
         except Exception:
             original_data = body.decode()
-        new_data = {
+
+        # Return itself if it's already the uniform structure.
+        if isinstance(original_data, dict) \
+                and set(original_data.keys()) == {"code", "message", "data"}:
+            return JSONResponse(content=original_data, status_code=response.status_code)
+
+        # Otherwise, wrap it...
+        wrapped = {
             "code": response.status_code,
-            "message": "Success" if response.status_code == 200 else "",
+            "message": "Success" if response.status_code < 400 else "Failure",
             "data": original_data,
         }
-        return JSONResponse(content=new_data, status_code=response.status_code)
-    else:
-        return response
+        return JSONResponse(content=wrapped, status_code=response.status_code)
 
-# 引入用户与文件模块的路由
+    return response
+
+
+# Introduce all routes and specify the prefix path...
 app.include_router(api_router, prefix=settings.API_ROUTE_PREFIX)
+
+# Supports pagination
+add_pagination(app)
+
+# logging
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

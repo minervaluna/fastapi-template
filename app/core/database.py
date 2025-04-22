@@ -7,6 +7,7 @@ from app.core.config import settings
 if "sqlite" in settings.SQLALCHEMY_DATABASE_URL:
     engine = create_engine(
         settings.SQLALCHEMY_DATABASE_URL,
+        echo=True,
         pool_size=10,  # 设置连接池中的连接数
         max_overflow=20,  # 设置超出 pool_size 后最多可以创建的连接数
         pool_recycle=3600  # 设置连接回收时间，防止长时间连接导致的问题
